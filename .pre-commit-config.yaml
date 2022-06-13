@@ -1,0 +1,26 @@
+# You can update hooks to the latest versions with `pre-commit autoupdate`
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+        exclude: \.drawio$
+    -   id: trailing-whitespace
+
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.10.1
+    hooks:
+    -   id: isort
+        additional_dependencies: ["toml"]
+
+-   repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        language_version: python3 # Should be a command that runs python3.6+
+
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+    -   id: flake8

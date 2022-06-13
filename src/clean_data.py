@@ -1,9 +1,10 @@
 import datetime
+import json
 import os
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
-import json
 
 COLUMN_RENAMES = {
     "Rental Id": "rental_id",
@@ -24,7 +25,9 @@ def add_station_names(station_names, df, namecolumn, idcolumn):
     station_names all the names that each ID is attached to.
     """
     namemaps = (
-        df[[idcolumn, namecolumn]].groupby(idcolumn).aggregate(lambda x: x.unique())
+        df[[idcolumn, namecolumn]]
+        .groupby(idcolumn)
+        .aggregate(lambda x: x.unique())
     )
     for number, names in namemaps.iterrows():
         current_names = station_names.get(number, set())
@@ -86,7 +89,8 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
 
     Args:
       bikefolder: Path to where the data is kept. Default: "./bikes?
-      N_files: Number of data files to load. Default: all (which probably won't fit in
+      N_files: Number of data files to load. Default: all
+            (which probably won't fit in
       memory!)
     """
     # Collect the paths to all the CSV files.
@@ -142,8 +146,12 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
         pieces.append(df)
 
         # Add station names appearing in this file to our collection of names.
-        add_station_names(station_allnames, df, "EndStation Name", "EndStation Id")
-        add_station_names(station_allnames, df, "StartStation Name", "StartStation Id")
+        add_station_names(
+            station_allnames, df, "EndStation Name", "EndStation Id"
+        )
+        add_station_names(
+            station_allnames, df, "StartStation Name", "StartStation Id"
+        )
 
     # Now that we've collected all the different names that the same station
     # goes by, we'll pick one of them to be the name we'll use. We do this by
@@ -194,15 +202,21 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
     df = df.set_index("rental_id")
     return df
 
+
 def clean_station_json(filepath):
     """
-    Given an input json files with station information (downloaded from here: https://api.tfl.gov.uk/swagger/ui/index.html?url=/swagger/docs/v1#!/BikePoint/BikePoint_GetAll)
+    Given an input json files with station information
+    (downloaded from here:
+    https://api.tfl.gov.uk/swagger/ui/index.html?url=/swagger/docs/v1#!/BikePoint/BikePoint_GetAll) # noqa: E501
     Produce a simple json with {station_name:{"lat":lat,"lon":lon}}
     Args:
-        filepath (str): path to the json file 
+        filepath (str): path to the json file
     """
     with open(filepath) as f:
         stations = json.load(f)
-    dataset = {station["commonName"]:{'lat':station["lat"],'lon':station["lon"]} for station in stations}
-    with open('../test/data/stations_loc.json', 'w', encoding='utf-8') as f:
+    dataset = {
+        station["commonName"]: {"lat": station["lat"], "lon": station["lon"]}
+        for station in stations
+    }
+    with open("../test/data/stations_loc.json", "w", encoding="utf-8") as f:
         json.dump(dataset, f, ensure_ascii=False, indent=4)

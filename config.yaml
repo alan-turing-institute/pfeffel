@@ -1,0 +1,7 @@
+data: # all relative to the project root
+    root_dir: data
+    relative_paths:
+      urls_file: bike_data_urls.txt
+      csvs_dir: bike_data
+      zips_dir: bike_zips
+      xlsx_archive_dir: xlsx_archive
