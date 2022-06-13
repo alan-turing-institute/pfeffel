@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import json
 
 COLUMN_RENAMES = {
     "Rental Id": "rental_id",
@@ -192,3 +193,16 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
     df = df.sort_values("rental_id")
     df = df.set_index("rental_id")
     return df
+
+def clean_station_json(filepath):
+    """
+    Given an input json files with station information (downloaded from here: https://api.tfl.gov.uk/swagger/ui/index.html?url=/swagger/docs/v1#!/BikePoint/BikePoint_GetAll)
+    Produce a simple json with {station_name:{"lat":lat,"lon":lon}}
+    Args:
+        filepath (str): path to the json file 
+    """
+    with open(filepath) as f:
+        stations = json.load(f)
+    dataset = {station["commonName"]:{'lat':station["lat"],'lon':station["lon"]} for station in stations}
+    with open('../test/data/stations_loc.json', 'w', encoding='utf-8') as f:
+        json.dump(dataset, f, ensure_ascii=False, indent=4)
