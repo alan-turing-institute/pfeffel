@@ -6,6 +6,8 @@ authors = ["The Pfeffel team "]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+pandas = "^1.2.2"
+numpy = "^1.20.1"
 
 [tool.poetry.dev-dependencies]
 
