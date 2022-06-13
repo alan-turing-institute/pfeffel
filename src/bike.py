@@ -1,11 +1,10 @@
 class Bike():
     def __init__(
         self,
-        id,
-        start_date,
-        time_used
-
+        id
     ):
-        self.id = id,
-        self.start_date = start_date,
-        self.time_used = time_used
+        self.id = id
+        
+    def get_story(self, dataset):
+        bike_rides = dataset[dataset['bike_id']==self.id]
+        return bike_rides
