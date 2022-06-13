@@ -4,6 +4,18 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+COLUMN_RENAMES = {
+    "Rental Id": "rental_id",
+    "Duration": "duration",
+    "Bike Id": "bike_id",
+    "End Date": "end_date",
+    "EndStation Id": "end_station_id",
+    "EndStation Name": "end_station_name",
+    "Start Date": "start_date",
+    "StartStation Id": "start_station_id",
+    "StartStation Name": "start_station_name",
+}
+
 
 def add_station_names(station_names, df, namecolumn, idcolumn):
     """Given a DataFrame df that has df[namecolumn] listing names of stations
@@ -25,7 +37,7 @@ def add_station_names(station_names, df, namecolumn, idcolumn):
         station_names[number] = current_names
 
 
-def clean_datetime_column(df, colname, roundto="H"):
+def clean_datetime_column(df, colname, roundto="S"):
     """Parse df[colname] from strings to datetime objects, and round the times
     to the nearest hour. Also chop off from df any rows with times before
     2010-07-30 or after 2020-01-01, since these are nonsense. df is partially
@@ -40,7 +52,7 @@ def clean_datetime_column(df, colname, roundto="H"):
     df[colname] = pd.to_datetime(df[colname], format=format)
     df[colname] = df[colname].dt.round(roundto)
     early_cutoff = datetime.datetime(2010, 7, 30)  # When the program started.
-    late_cutoff = datetime.datetime(2020, 1, 1)  # Approximately now.
+    late_cutoff = datetime.datetime.now()
     df = df[(late_cutoff > df[colname]) & (df[colname] >= early_cutoff)]
     return df
 
@@ -176,5 +188,7 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
         pieces.append(df)
 
     df = pd.concat(pieces)
-    df.set_index("Rental Id")
+    df = df.rename(columns=COLUMN_RENAMES)
+    df = df.sort_values("rental_id")
+    df = df.set_index("rental_id")
     return df
