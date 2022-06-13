@@ -1,4 +1,3 @@
-import datetime
 import json
 import os
 from pathlib import Path
@@ -6,6 +5,25 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+# Columns of the CSV files that we need, and some data relate to them.
+COLUMNS = [
+    "Rental Id",
+    "Duration",
+    "Bike Id",
+    "End Date",
+    "EndStation Id",
+    "EndStation Name",
+    "Start Date",
+    "StartStation Id",
+    "StartStation Name",
+]
+COLUMNS_ALTERNATIVE_NAMES = {
+    "Duration": ("Duration_Seconds",),
+    "EndStation Id": ("End Station Id",),
+    "EndStation Name": ("End Station Name",),
+    "StartStation Id": ("Start Station Id",),
+    "StartStation Name": ("Start Station Id",),
+}
 COLUMN_RENAMES = {
     "Rental Id": "rental_id",
     "Duration": "duration",
@@ -16,6 +34,17 @@ COLUMN_RENAMES = {
     "Start Date": "start_date",
     "StartStation Id": "start_station_id",
     "StartStation Name": "start_station_name",
+}
+COLUMN_DTYPES = {
+    "Rental Id": np.float_,
+    "Duration": np.float_,
+    "Bike Id": np.float_,
+    "End Date": str,
+    "EndStation Id": np.float_,
+    "EndStation Name": str,
+    "Start Date": str,
+    "StartStation Id": np.float_,
+    "StartStation Name": str,
 }
 
 
@@ -41,11 +70,10 @@ def add_station_names(station_names, df, namecolumn, idcolumn):
         station_names[number] = current_names
 
 
-def clean_datetime_column(df, colname, roundto="S"):
+def clean_datetime_column(df, colname, roundto="min"):
     """Parse df[colname] from strings to datetime objects, and round the times
-    to the nearest hour. Also chop off from df any rows with times before
-    2010-07-30 or after 2020-01-01, since these are nonsense. df is partially
-    modified in place, but the return value should still be used.
+    to the nearest minute. df is partially modified in place, but the return
+    value should still be used.
     """
     # A bit of a hacky way to use the first entry to figure out which date
     # format this file uses. Not super robust, but works for our purposes.
@@ -55,73 +83,39 @@ def clean_datetime_column(df, colname, roundto="S"):
         format = "%d/%m/%Y %H:%M"
     df[colname] = pd.to_datetime(df[colname], format=format)
     df[colname] = df[colname].dt.round(roundto)
-    early_cutoff = datetime.datetime(2010, 7, 30)  # When the program started.
-    late_cutoff = datetime.datetime.now()
-    df = df[(late_cutoff > df[colname]) & (df[colname] >= early_cutoff)]
     return df
 
 
-def castable_to_int(obj):
-    """Return True if obj is castable to int, False otherwise."""
-    try:
-        int(obj)
-        return True
-    except ValueError:
-        return False
+def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
+    """Load the cleaned bike usage data from disk.
 
-
-def cast_to_int(df, colname):
-    """Cast df[colname] to dtype int. All rows that are not castable to int are
-    dropped. df is partially modified in place, but the return value should be
-    used.
-    """
-    try:
-        df = df.astype({colname: np.int_}, copy=False)
-    except ValueError:
-        castable_rows = df[colname].apply(castable_to_int)
-        df = df[castable_rows]
-        df = df.astype({colname: np.int_}, copy=False)
-    return df
-
-
-def load_clean_data(bikefolder="./bikes", num_files=None):
-    """Load the cleaned bike usage data from disk, return a pd.DataFrame.
+    Return a pd.DataFrame and a dictionary mapping station IDs to all names
+    they are known by.
 
     Args:
       bikefolder: Path to where the data is kept. Default: "./bikes?
-      N_files: Number of data files to load. Default: all
-            (which probably won't fit in
-      memory!)
+      num_files: Number of data files to load. Default: all (which probably
+      won't fit in memory!)
+      datapaths: A list of filenames to load. Default: all. Overrides the other
+      arguments if set.
     """
-    # Collect the paths to all the CSV files.
-    datafiles = sorted(os.listdir(bikefolder))
-    if num_files is not None:
-        datafiles = datafiles[:num_files]
-    folderpath = Path(bikefolder)
-    datapaths = [folderpath / Path(file) for file in datafiles]
-    datapaths = [p for p in datapaths if p.suffix == ".csv"]
+    if datapaths is None:
+        # Collect the paths to all the CSV files.
+        datafiles = sorted(os.listdir(bikefolder))
+        if num_files is not None:
+            datafiles = datafiles[:num_files]
+        folderpath = Path(bikefolder)
+        datapaths = [folderpath / Path(file) for file in datafiles]
+        datapaths = [p for p in datapaths if p.suffix == ".csv"]
 
     # Initialize a dictionary that will have as keys station ID numbers, and as
     # values sets that include all the names this station has had in the files.
     station_allnames = {}
 
-    # Each CSV file will list events in some time window. We process them
+    # Each CSV file will list trips in some time window. We process them
     # one-by-one, collect all the DataFrames for individual time windows to
     # `pieces`, and concatenate them at the end.
-
     pieces = []
-    # Columns of the CSV files that we need.
-    cols = [
-        "Rental Id",
-        "Duration",
-        "Bike Id",
-        "End Date",
-        "EndStation Id",
-        "EndStation Name",
-        "Start Date",
-        "StartStation Id",
-        "StartStation Name",
-    ]
     # At least one CSV file gives us trouble because it doesn't list station
     # IDs, only station names. We'll collect the paths to those CSV files to
     # `problem_paths` and deal with them at the end.
@@ -129,16 +123,21 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
     for path in datapaths:
         print("Processing {}".format(path))
         try:
-            df = pd.read_csv(path, usecols=cols, encoding="ISO-8859-2")
+            df = pd.read_csv(
+                path,
+                usecols=COLUMNS,
+                encoding="ISO-8859-2",
+                dtype=COLUMN_DTYPES,
+            )
         except ValueError:
             # Some files have missing or abnormaly named columns. We'll deal
             # with them later.
             problem_paths.append(path)
             continue
-        # Cast the columns to the right types. This is easier ones NAs have
-        # been dropped.
-        df = cast_to_int(df, "EndStation Id")
-        df = cast_to_int(df, "StartStation Id")
+        # Drop all rows where all values are missing. There literally are lines
+        # in the CSV files that specify such empty rows.
+        df = df[~df.isna().all(axis=1)]
+        df["filename"] = path
         # Turn the date columns from strings into datetime objects rounded to
         # the hour.
         df = clean_datetime_column(df, "End Date")
@@ -173,34 +172,73 @@ def load_clean_data(bikefolder="./bikes", num_files=None):
             return np.nan
 
     # Let's deal with the problem cases. They are ones that are missing station
-    # ID columns.  They do have the station names though, so we'll use those
-    # to, with the above dictionary to get the IDs.
-    # print("Doing the problem cases ({} of them).".format(len(problem_paths)))
-    safe_cols = [
-        "Duration",
-        "Bike Id",
-        "End Date",
-        "EndStation Name",
-        "Start Date",
-        "StartStation Name",
-    ]
+    # ID columns. They do have the station names though, so we'll use those,
+    # with the above dictionary, to get the IDs.
+    print("Doing the problem cases ({} of them).".format(len(problem_paths)))
     for path in problem_paths:
         print(path)
-        df = pd.read_csv(path, usecols=safe_cols, encoding="ISO-8859-2")
+        df = pd.read_csv(
+            path,
+            encoding="ISO-8859-2",
+        )
+        # Drop all rows where all values are missing. There literally are lines
+        # in the CSV files that specify such empty rows.
+        df = df[~df.isna().all(axis=1)]
+        df["filename"] = path
+        # If one of the expected columns is missing, look for alternative names
+        # for it.
+        for column_name in COLUMNS:
+            if (
+                column_name not in df.columns
+                and column_name in COLUMNS_ALTERNATIVE_NAMES
+            ):
+                for alternative_name in COLUMNS_ALTERNATIVE_NAMES[column_name]:
+                    if alternative_name in df.columns:
+                        df[column_name] = df[alternative_name]
+        # Remove all the columns that we didn't expect.
+        for column_name in df.columns:
+            if column_name not in COLUMNS:
+                df = df.drop(columns=column_name)
         # Add a column of station IDs, based on names.
-        df["EndStation Id"] = df["EndStation Name"].apply(get_station_id)
-        df["StartStation Id"] = df["StartStation Name"].apply(get_station_id)
+        if "EndStation Id" not in df.columns:
+            df["EndStation Id"] = df["EndStation Name"].apply(get_station_id)
+        if "StartStation Id" not in df.columns:
+            df["StartStation Id"] = df["StartStation Name"].apply(
+                get_station_id
+            )
         # Turn the date columns from strings into datetime objects rounded to
         # the hour.
-        clean_datetime_column(df, "End Date")
-        clean_datetime_column(df, "Start Date")
+        df = clean_datetime_column(df, "End Date")
+        df = clean_datetime_column(df, "Start Date")
         pieces.append(df)
 
     df = pd.concat(pieces)
+
+    # If station ID isn't there, but name is, fill the ID using the name.
+    filter = ~df["StartStation Name"].isna() & df["StartStation Id"].isna()
+    df.loc[filter, "StartStation Id"] = df.loc[
+        filter, "StartStation Name"
+    ].apply(get_station_id)
+    filter = ~df["EndStation Name"].isna() & df["EndStation Id"].isna()
+    df.loc[filter, "EndStation Id"] = df.loc[filter, "EndStation Name"].apply(
+        get_station_id
+    )
+
     df = df.rename(columns=COLUMN_RENAMES)
+    df = df.convert_dtypes()  # Convert floats to ints, with NaN -> NA
+    # We don't consider dates when dropping duplicates, because they may be
+    # rounded in different ways in different files.
+    df = df.drop_duplicates(
+        subset=[
+            "rental_id",
+            "bike_id",
+            "end_station_id",
+            "start_station_id",
+        ]
+    )
     df = df.sort_values("rental_id")
     df = df.set_index("rental_id")
-    return df
+    return df, station_allnames
 
 
 def clean_station_json(filepath):
