@@ -215,7 +215,10 @@ def clean_station_json(filepath):
     with open(filepath) as f:
         stations = json.load(f)
     dataset = {
-        station["commonName"]: {"lat": station["lat"], "lon": station["lon"]}
+        station["id"].split("_")[1]: {
+            "lat": station["lat"],
+            "lon": station["lon"],
+        }
         for station in stations
     }
     with open("../test/data/stations_loc.json", "w", encoding="utf-8") as f:
