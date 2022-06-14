@@ -78,7 +78,7 @@ class Trip:
 
         return map
 
-    def folium_route(self):
+    def folium_route(self, colour="red"):
 
         if self.route == {}:
             self.get_route()
@@ -89,7 +89,7 @@ class Trip:
         ]
 
         folium_route = folium.PolyLine(
-            coords, color="red", weight=10, opacity=0.8
+            coords, color=colour, weight=10, opacity=0.8
         )
 
         return folium_route

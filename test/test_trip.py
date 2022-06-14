@@ -26,18 +26,20 @@ class TestTrip(TestCase):
 
     def test_routes(self):
 
-        for route in self.data.index[:10]:
+        colours = ["red", "blue", "green", "black", "yellow"]
+
+        # Create base map
+        London = [51.506949, -0.122876]
+        map = folium.Map(
+            location=London, zoom_start=12, tiles="CartoDB positron"
+        )
+
+        for counter, route in enumerate(self.data.index[:5]):
 
             trip = Trip(self.data, route, self.stations)
             trip.get_route(self.key)
 
-            # Create base map
-            London = [51.506949, -0.122876]
-            map = folium.Map(
-                location=London, zoom_start=12, tiles="CartoDB positron"
-            )
-
-            trip.folium_route().add_to(map)
+            trip.folium_route(colours[counter]).add_to(map)
 
         f = "map_multiiple_trips.html"
         map.save(f)
