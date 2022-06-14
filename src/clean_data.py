@@ -197,7 +197,7 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
                         df[column_name] = df[alternative_name]
         # Remove all the columns that we didn't expect.
         for column_name in df.columns:
-            if column_name not in COLUMNS:
+            if column_name not in COLUMNS + ["filename"]:
                 df = df.drop(columns=column_name)
         # Add a column of station IDs, based on names.
         if "EndStation Id" not in df.columns:
