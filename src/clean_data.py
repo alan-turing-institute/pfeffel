@@ -226,16 +226,10 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
 
     df = df.rename(columns=COLUMN_RENAMES)
     df = df.convert_dtypes()  # Convert floats to ints, with NaN -> NA
-    # We don't consider dates when dropping duplicates, because they may be
-    # rounded in different ways in different files.
-    df = df.drop_duplicates(
-        subset=[
-            "rental_id",
-            "bike_id",
-            "end_station_id",
-            "start_station_id",
-        ]
-    )
+    # This drops multiple cases of the same trip being in multiple files
+    # (sometimes with slightly differently rounded timestamps), and two cases
+    # with non-sense timestamps or stations.
+    df = df.drop_duplicates(subset=["rental_id"])
     df = df.sort_values("rental_id")
     df = df.set_index("rental_id")
     return df, station_allnames
