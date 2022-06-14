@@ -1,3 +1,4 @@
+import folium
 import requests as requests
 
 
@@ -8,14 +9,18 @@ class Trip:
         self.init_station = {
             "name": df.start_station_name.values[0],
             "id": df.start_station_id.values[0],
-            "latitude": station_data[df.start_station_name.values[0]]["lat"],
-            "longitude": station_data[df.start_station_name.values[0]]["lon"],
+            "latitude": station_data[str(df.start_station_id.values[0])][
+                "lat"
+            ],
+            "longitude": station_data[str(df.start_station_id.values[0])][
+                "lon"
+            ],
         }
         self.end_station = {
             "name": df.end_station_name.values[0],
             "id": df.end_station_id.values[0],
-            "latitude": station_data[df.end_station_name.values[0]]["lat"],
-            "longitude": station_data[df.end_station_name.values[0]]["lon"],
+            "latitude": station_data[str(df.end_station_id.values[0])]["lat"],
+            "longitude": station_data[str(df.end_station_id.values[0])]["lon"],
         }
         self.bike = df.bike_id.values[0]
         self.duration = df.duration.values[0]
@@ -24,6 +29,7 @@ class Trip:
             "end": df.end_date.values[0],
         }
         self.circular = self.init_station == self.end_station
+        self.route = {}
 
     def get_route(self, key):
 
@@ -59,3 +65,31 @@ class Trip:
                     trip_data = data
 
             self.route = trip_data
+
+    def map(self):
+
+        # Create base map
+        London = [51.506949, -0.122876]
+        map = folium.Map(
+            location=London, zoom_start=12, tiles="CartoDB positron"
+        )
+
+        self.folium_route().add_to(map)
+
+        return map
+
+    def folium_route(self):
+
+        if self.route == {}:
+            self.get_route()
+
+        coords = [
+            (float(i.split(",")[1]), float(i.split(",")[0]))
+            for i in self.route["coordinates"].split(" ")
+        ]
+
+        folium_route = folium.PolyLine(
+            coords, color="red", weight=10, opacity=0.8
+        )
+
+        return folium_route
