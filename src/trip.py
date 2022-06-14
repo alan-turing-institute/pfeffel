@@ -9,18 +9,22 @@ class Trip:
         self.init_station = {
             "name": df.start_station_name.values[0],
             "id": df.start_station_id.values[0],
-            "latitude": station_data[str(df.start_station_id.values[0])][
+            "latitude": station_data[str(int(df.start_station_id.values[0]))][
                 "lat"
             ],
-            "longitude": station_data[str(df.start_station_id.values[0])][
+            "longitude": station_data[str(int(df.start_station_id.values[0]))][
                 "lon"
             ],
         }
         self.end_station = {
             "name": df.end_station_name.values[0],
             "id": df.end_station_id.values[0],
-            "latitude": station_data[str(df.end_station_id.values[0])]["lat"],
-            "longitude": station_data[str(df.end_station_id.values[0])]["lon"],
+            "latitude": station_data[str(int(df.end_station_id.values[0]))][
+                "lat"
+            ],
+            "longitude": station_data[str(int(df.end_station_id.values[0]))][
+                "lon"
+            ],
         }
         self.bike = df.bike_id.values[0]
         self.duration = df.duration.values[0]
