@@ -8,9 +8,20 @@ class Bike:
     def __init__(self, id):
         self.id = id
 
+    def get_chains(self):
+        chain_ids = self.bike_rides.chain_id.to_list()
+        chains = {}
+        for chain_id in chain_ids:
+            chain_rides = self.bike_rides[
+                self.bike_rides["chain_id"] == chain_id
+            ]
+            chains[chain_id] = chain_rides
+        self.chains = chains
+
     def get_story(self, dataset):
         bike_rides = dataset[dataset["bike_id"] == self.id]
         self.bike_rides = bike_rides
+        self.get_chains()
 
     def get_usage(self):
         usage = self.bike_rides["duration"].sum()
