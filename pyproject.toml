@@ -5,7 +5,7 @@ description = ""
 authors = ["The Pfeffel team "]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.11"
 numpy = "^1.20.1"
 pandas = "^1.4.2"
 xlrd = "^2.0.1"
@@ -16,7 +16,8 @@ jupyterlab = "^3.4.3"
 folium = "^0.7.0"
 seaborn = "^0.10.0"
 h3 = "^3.7.4"
-
+matplotlib = "^3.5.2"
+scipy = "^1.8.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.0"
