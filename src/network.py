@@ -5,7 +5,7 @@ import re
 import networkx as nx
 import pandas as pd
 
-STATION_NAMES_FILE = "latest_station_names.pickle"
+STATION_NAMES_FILE = "../data/station_names_20220615_1137.pickle"
 STATION_COORDS_FILE = "../data/stations_loc.json"
 
 
@@ -51,13 +51,16 @@ def get_node_info(graph):
         station_latlon = json.load(f)
 
     nodes = graph.nodes()
-    pos = {int(k): (v["lon"], v["lat"]) for k, v in station_latlon.items()}
 
-    station_sizes = graph.out_degree(weight="trip_count")
+    pos = [station_latlon[str(int(node))] for node in nodes]
 
-    labels = {k: get_station_name(k) for k in station_sizes.index}
+    station_sizes = [i[1] for i in list(graph.out_degree(weight="trip_count"))]
 
-    nodes_df = pd.Dataframe([nodes, pos, station_sizes, labels])
+    labels = [get_station_name(int(node)) for node in nodes]
+
+    nodes_df = pd.DataFrame(
+        {"id": list(nodes), "pos": pos, "size": station_sizes, "name": labels}
+    )
 
     return nodes_df
 
@@ -73,7 +76,13 @@ def visualise_network_map(network, node_pos, node_label):
 
 def main():
 
-    data = pd.read_pickle("data/sample.pickle")
-    graph = create_network_from_data(data, 0.01)
+    data = pd.read_pickle("../test/data/sample.pickle")
+    graph = create_network_from_data(data, 0.001)
 
-    print(graph)
+    nodes_info = get_node_info(graph)
+
+    print(nodes_info)
+
+
+if __name__ == "__main__":
+    main()
