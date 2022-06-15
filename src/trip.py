@@ -96,7 +96,7 @@ class Trip:
         # Create base map
         London = [51.506949, -0.122876]
         map = folium.Map(
-            location=London, zoom_start=12, tiles="CartoDB positron"
+            location=London, zoom_start=14, tiles="CartoDB positron"
         )
 
         self.folium_route().add_to(map)
@@ -114,7 +114,7 @@ class Trip:
         ]
 
         folium_route = folium.PolyLine(
-            coords, color=colour, weight=10, opacity=0.8
+            coords, color=colour, weight=5, opacity=0.8
         )
 
         return folium_route

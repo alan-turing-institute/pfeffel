@@ -31,7 +31,7 @@ class TestTrip(TestCase):
         # Create base map
         London = [51.506949, -0.122876]
         map = folium.Map(
-            location=London, zoom_start=12, tiles="CartoDB positron"
+            location=London, zoom_start=14, tiles="CartoDB positron"
         )
 
         for counter, route in enumerate(self.data.index[:5]):
