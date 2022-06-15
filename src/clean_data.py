@@ -47,6 +47,112 @@ COLUMN_DTYPES = {
     "StartStation Name": str,
 }
 
+# This is the list of station names that were given the same ID as some other
+# station name, that is clearly different (left in as comments).
+MISIDED_STATIONS = [
+    [
+        # "Lodge Road, St. John's Wood",
+        # "Lodge Road: St. John's Wood",
+        "Maida Vale, Maida Vale",
+    ],
+    [
+        # "Milford Lane, Temple",
+        # "Milford Lane: Temple",
+        "Riverlight North, Nine Elms",
+    ],
+    [
+        # "Fore Street Avenue: Guildhall",
+        # "Fore Street, Guildhall",
+        # "Fore Street, Guildhall (REMOVED)",
+        # "Fore Street: Guildhall",
+        "Putney Pier, Wandsworth",
+    ],
+    [
+        # "Cumberland Gate, Hyde Park",
+        # "Cumberland Gate: Hyde Park",
+        "Pop Up Dock 2",
+    ],
+    [
+        # "Clapham Common Station, Clapham Common",
+        "Oval Way, Lambeth",
+        "Oval Way, Vauxhall",
+        "Oval Way: Lambeth",
+    ],
+    [
+        # "Marylebone Flyover, Paddington",
+        # "Marylebone Flyover: Paddington",
+        # "Paddington Green Police Station, Paddington",
+        "Sun Street, Liverpool Street",
+    ],
+    [
+        # "Rotherhithe Roundabout, Rotherhithe",
+        "Walworth Road, Elephant & Castle",
+        "Walworth Road, Southwark",
+        "Walworth Road: Southwark",
+    ],
+    [
+        # "Castalia Square :Cubitt Town",
+        # "Castalia Square, Cubitt Town",
+        # "Castalia Square: Cubitt Town",
+        "Gascoyne Road, Victoria Park",
+    ],
+    [
+        # "Exhibition Road Museums 2, South Kensington",
+        "Thornfield House :Poplar",
+        "Thornfield House, Poplar",
+        "Thornfield House: Poplar",
+    ],
+    [
+        # "Import Dock",
+        # "Import Dock, Canary Wharf",
+        "Montgomery Square, Canary Wharf",
+        "Montgomery Square: Canary Wharf",
+    ],
+    [
+        # "Bradmead , Nine Elms",
+        # "Bradmead, Battersea Park",
+        # "Bradmead, Nine Elms",
+        "London Fields, Hackney Central",
+    ],
+    [
+        # "Blackfriars Station, St. Paul's",
+        "Grant Road West , Clapham Junction",
+        "Grant Road West, Clapham Junction",
+    ],
+    [
+        # "Thessaly Road North, Nine Elms",
+        # "Thessaly Road North, Wandsworth Road",
+        "Walworth Square, Walworth",
+    ],
+    [
+        "Lansdowne Way Bus Garage, Stockwell",
+        # "Victoria Rise, Clapham Common",
+    ],
+    [
+        "Gauden Road, Clapham",
+        # "Stockwell Roundabout, Stockwell"
+    ],
+    [
+        "One Tower Bridge, Bermondsey",
+        # "Westminster Pier, Westminster"
+    ],
+    [
+        "Arundel Street, Temple",
+        # "Wansey Street, Walworth",
+        # "Wansey Street: Walworth",
+    ],
+    [
+        "Bourne Street, Belgravia",
+        # "Embankment (Horse Guards), Westminster",
+        # "Embankment (Horse Guards): Westminster",
+    ],
+    [
+        "Bevington Road, North Kensington",
+        # "The Metropolitan, Portobello",
+    ],
+]
+MISIDED_STATIONS_FLAT = sum(MISIDED_STATIONS, [])
+
 
 def add_station_names(station_names, df, namecolumn, idcolumn):
     """Given a DataFrame df that has df[namecolumn] listing names of stations
@@ -160,6 +266,9 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
     station_ids = {}
     station_names = {}
     for k, v in station_allnames.items():
+        v_filtered = [name for name in v if name not in MISIDED_STATIONS_FLAT]
+        if v_filtered:
+            v = v_filtered
         v = sorted(v)
         station_names[k] = v[0]
         for name in v:
@@ -170,6 +279,12 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
             return station_ids[name]
         except KeyError:
             return np.nan
+
+    def get_station_name(id):
+        try:
+            return station_names[id]
+        except KeyError:
+            return pd.NA
 
     # Let's deal with the problem cases. They are ones that are missing station
     # ID columns. They do have the station names though, so we'll use those,
@@ -214,6 +329,16 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
 
     df = pd.concat(pieces)
 
+    # Drop one anomalous ID
+    df = df[df["StartStation Id"] != "Tabletop1"]
+    df["StartStation Id"] = df["StartStation Id"].astype(np.float_)
+
+    # There are stations that have been given the same ID as another, clearly
+    # distinct station. We should really create new IDs for them, but we are
+    # short on time, so we just drop them.
+    df = df[~df["EndStation Name"].isin(MISIDED_STATIONS_FLAT)]
+    df = df[~df["StartStation Name"].isin(MISIDED_STATIONS_FLAT)]
+
     # If station ID isn't there, but name is, fill the ID using the name.
     filter = ~df["StartStation Name"].isna() & df["StartStation Id"].isna()
     df.loc[filter, "StartStation Id"] = df.loc[
@@ -224,6 +349,10 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
         get_station_id
     )
 
+    # Convert the station names to the canonical ones.
+    df["StartStation Name"] = df["StartStation Id"].apply(get_station_name)
+    df["EndStation Name"] = df["EndStation Id"].apply(get_station_name)
+
     df = df.rename(columns=COLUMN_RENAMES)
     df = df.convert_dtypes()  # Convert floats to ints, with NaN -> NA
     # This drops multiple cases of the same trip being in multiple files
@@ -232,6 +361,11 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
     df = df.drop_duplicates(subset=["rental_id"])
     df = df.sort_values("rental_id")
     df = df.set_index("rental_id")
+
+    # Switch station_allnames to use ints, and drop the weird one out.
+    station_allnames = {
+        int(k): v for k, v in station_allnames.items() if k != "Tabletop1"
+    }
     return df, station_allnames
 
 
