@@ -8,32 +8,29 @@ class Bike:
     def __init__(self, id):
         self.id = id
 
-    def get_chains(self):
+    def get_trips(self, df, stations):
+
+        routes = [Trip(df, self.id, trip_id, stations) for trip_id in df.index]
+        return routes
+
+    def get_chains(self, stations):
         chain_ids = self.bike_rides.chain_id.to_list()
         chains = {}
         for chain_id in chain_ids:
             chain_rides = self.bike_rides[
                 self.bike_rides["chain_id"] == chain_id
             ]
-            chains[chain_id] = chain_rides
+            chains[chain_id] = self.get_trips(chain_rides, stations)
         self.chains = chains
 
-    def get_story(self, dataset):
+    def get_story(self, dataset, stations):
         bike_rides = dataset[dataset["bike_id"] == self.id]
         self.bike_rides = bike_rides
-        self.get_chains()
+        self.get_chains(stations)
 
     def get_usage(self):
         usage = self.bike_rides["duration"].sum()
         return usage
-
-    def get_trips(self, stations):
-
-        routes = [
-            Trip(self.bike_rides, self.id, trip_id, stations)
-            for trip_id in self.bike_rides.index
-        ]
-        self.routes = routes
 
     def visualize_routes(self, key):
 
@@ -44,14 +41,14 @@ class Bike:
         map = folium.Map(
             location=London, zoom_start=12, tiles="CartoDB positron"
         )
-        colours = get_colours(len(self.routes))
-        for counter, trip in enumerate(self.routes):
+        for chain_id, chain in self.chains.items():
+            colours = get_colours(len(chain))
+            for counter, trip in enumerate(chain):
+                trip.get_route(key)
+                if trip.route == {}:
+                    continue
 
-            trip.get_route(key)
-            if trip.route == {}:
-                continue
+                trip.folium_route(key, colours[counter]).add_to(map)
 
-            trip.folium_route(key, colours[counter]).add_to(map)
-
-        f = "../output/" + str(self.id) + "_map_multiple_trips.html"
-        map.save(f)
+            f = "../output/" + str(self.id) + "_" + str(chain_id) + ".html"
+            map.save(f)
