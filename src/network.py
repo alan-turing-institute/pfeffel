@@ -1,0 +1,79 @@
+import json
+import pickle
+import re
+
+import networkx as nx
+import pandas as pd
+
+STATION_NAMES_FILE = "latest_station_names.pickle"
+STATION_COORDS_FILE = "../data/stations_loc.json"
+
+
+def get_station_name(id):
+    with open(STATION_NAMES_FILE, "rb") as f:
+        station_allnames = pickle.load(f)
+
+    name = sorted(station_allnames[id])[0]
+    name = re.split(";|,|:", name)[0]
+    return name
+
+
+def create_network_from_data(df, TRIP_COUNT_THRESHOLD):
+    trip_counts = (
+        (
+            df[["start_station_id", "end_station_id", "bike_id"]]
+            .groupby(["start_station_id", "end_station_id"])
+            .count()
+        )
+        .reset_index()
+        .rename(columns={"bike_id": "trip_count"})
+    )
+    trip_counts = trip_counts.sort_values("trip_count")
+    total_num_trips = trip_counts["trip_count"].sum()
+
+    trip_counts = trip_counts[
+        trip_counts["trip_count"] >= TRIP_COUNT_THRESHOLD * total_num_trips
+    ]
+
+    graph = nx.from_pandas_edgelist(
+        trip_counts,
+        source="start_station_id",
+        target="end_station_id",
+        edge_attr="trip_count",
+        create_using=nx.DiGraph,
+    )
+
+    return graph
+
+
+def get_node_info(graph):
+    with open(STATION_COORDS_FILE, "r") as f:
+        station_latlon = json.load(f)
+
+    nodes = graph.nodes()
+    pos = {int(k): (v["lon"], v["lat"]) for k, v in station_latlon.items()}
+
+    station_sizes = graph.out_degree(weight="trip_count")
+
+    labels = {k: get_station_name(k) for k in station_sizes.index}
+
+    nodes_df = pd.Dataframe([nodes, pos, station_sizes, labels])
+
+    return nodes_df
+
+
+def network_community_detection(network):
+    pass
+
+
+def visualise_network_map(network, node_pos, node_label):
+    # partition = community_louvain.best_partition(G)
+    pass
+
+
+def main():
+
+    data = pd.read_pickle("data/sample.pickle")
+    graph = create_network_from_data(data, 0.01)
+
+    print(graph)
