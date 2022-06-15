@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 test/data/bike_stations_dump.json
 testing.ipynb
+src/trip.py

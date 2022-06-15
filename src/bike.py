@@ -15,7 +15,7 @@ class Bike:
         usage = self.bike_rides["duration"].sum()
         return usage
 
-    def get_routes(self, stations):
+    def get_trips(self, stations):
 
         routes = [
             Trip(self.bike_rides, trip_id, stations)
@@ -23,9 +23,9 @@ class Bike:
         ]
         self.routes = routes
 
-    def visualize_routes(self):
+    def visualize_routes(self, key):
 
-        colours = ["red", "blue", "green", "black", "yellow"]
+        colours = ["red"]
 
         # Create base map
         London = [51.506949, -0.122876]
@@ -34,12 +34,12 @@ class Bike:
         )
 
         for counter, trip in enumerate(self.routes):
-            if counter > 5:
-                break
 
-            trip.get_route(key="f339aa90aba2b309")
+            trip.get_route(key)
+            if trip.route == {}:
+                continue
 
-            trip.folium_route(colours[counter]).add_to(map)
+            trip.folium_route(key, colours[0]).add_to(map)
 
         f = "map_multiiple_trips.html"
         map.save(f)

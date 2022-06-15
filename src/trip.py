@@ -82,10 +82,10 @@ class Trip:
 
         return map
 
-    def folium_route(self, colour="red"):
+    def folium_route(self, key, colour="red"):
 
         if self.route == {}:
-            self.get_route()
+            self.get_route(key)
 
         coords = [
             (float(i.split(",")[1]), float(i.split(",")[0]))
