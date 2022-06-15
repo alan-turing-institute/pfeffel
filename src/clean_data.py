@@ -329,16 +329,6 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
 
     df = pd.concat(pieces)
 
-    # Drop one anomalous ID
-    df = df[df["StartStation Id"] != "Tabletop1"]
-    df["StartStation Id"] = df["StartStation Id"].astype(np.float_)
-
-    # There are stations that have been given the same ID as another, clearly
-    # distinct station. We should really create new IDs for them, but we are
-    # short on time, so we just drop them.
-    df = df[~df["EndStation Name"].isin(MISIDED_STATIONS_FLAT)]
-    df = df[~df["StartStation Name"].isin(MISIDED_STATIONS_FLAT)]
-
     # If station ID isn't there, but name is, fill the ID using the name.
     filter = ~df["StartStation Name"].isna() & df["StartStation Id"].isna()
     df.loc[filter, "StartStation Id"] = df.loc[
@@ -349,9 +339,25 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
         get_station_id
     )
 
+    # Drop one anomalous ID
+    df = df[df["StartStation Id"] != "Tabletop1"]
+    df["StartStation Id"] = df["StartStation Id"].astype(np.float_)
+
+    # There are stations that have been given the same ID as another, clearly
+    # distinct station. We should really create new IDs for them, but we are
+    # short on time, so we just drop them.
+    df = df[~df["EndStation Name"].isin(MISIDED_STATIONS_FLAT)]
+    df = df[~df["StartStation Name"].isin(MISIDED_STATIONS_FLAT)]
+
     # Convert the station names to the canonical ones.
-    df["StartStation Name"] = df["StartStation Id"].apply(get_station_name)
-    df["EndStation Name"] = df["EndStation Id"].apply(get_station_name)
+    inferred_start_names = df["StartStation Id"].apply(get_station_name)
+    df["StartStation Name"] = df["StartStation Name"].where(
+        inferred_start_names.isna(), other=inferred_start_names
+    )
+    inferred_end_names = df["EndStation Id"].apply(get_station_name)
+    df["EndStation Name"] = df["EndStation Name"].where(
+        inferred_end_names.isna(), other=inferred_end_names
+    )
 
     df = df.rename(columns=COLUMN_RENAMES)
     df = df.convert_dtypes()  # Convert floats to ints, with NaN -> NA
