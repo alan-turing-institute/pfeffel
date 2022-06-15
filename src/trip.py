@@ -1,9 +1,12 @@
+import json
+import os
+
 import folium
 import requests as requests
 
 
 class Trip:
-    def __init__(self, data, trip_id, station_data):
+    def __init__(self, data, bike_id, trip_id, station_data):
         df = data[data.index == trip_id]
 
         self.init_station = {
@@ -34,41 +37,59 @@ class Trip:
         }
         self.circular = self.init_station == self.end_station
         self.route = {}
+        self.bike_id = bike_id
+        self.trip_id = trip_id
 
     def get_route(self, key):
-
-        if self.circular:
-            print("This is a circular trip, no route avalaible.")
-            self.route = {}
+        route_file_path = (
+            "../output/routes/"
+            + str(self.bike_id)
+            + "_"
+            + str(self.trip_id)
+            + ".json"
+        )
+        if os.path.isfile(route_file_path):
+            with open(route_file_path, "r") as fp:
+                data = json.load(fp)
+                self.route = data
         else:
-            plans = ["balanced", "fastest", "quietest", "shortest"]
+            if self.circular:
+                print("This is a circular trip, no route avalaible.")
+                self.route = {}
 
-            closest_time = 10000
-            trip_data = {}
+            else:
+                plans = ["balanced", "fastest", "quietest", "shortest"]
 
-            for plan in plans:
-                name = (
-                    "https://www.cyclestreets.net/api/journey.json?key="
-                    + key
-                    + "&itinerarypoints="
-                    + str(self.init_station["longitude"])
-                    + ","
-                    + str(self.init_station["latitude"])
-                    + "|"
-                    + str(self.end_station["longitude"])
-                    + ","
-                    + str(self.end_station["latitude"])
-                    + "&plan="
-                    + plan
-                )
-                data = requests.get(name).json()["marker"][0]["@attributes"]
-                time = int(data["time"])
+                closest_time = 10000
+                trip_data = {}
 
-                if abs(self.duration - time) < closest_time:
-                    closest_time = abs(time - self.duration)
-                    trip_data = data
+                for plan in plans:
+                    name = (
+                        "https://www.cyclestreets.net/api/journey.json?key="
+                        + key
+                        + "&itinerarypoints="
+                        + str(self.init_station["longitude"])
+                        + ","
+                        + str(self.init_station["latitude"])
+                        + "|"
+                        + str(self.end_station["longitude"])
+                        + ","
+                        + str(self.end_station["latitude"])
+                        + "&plan="
+                        + plan
+                    )
+                    data = requests.get(name).json()["marker"][0][
+                        "@attributes"
+                    ]
+                    time = int(data["time"])
 
-            self.route = trip_data
+                    if abs(self.duration - time) < closest_time:
+                        closest_time = abs(time - self.duration)
+                        trip_data = data
+
+                self.route = trip_data
+            with open(route_file_path, "w") as fp:
+                json.dump(self.route, fp)
 
     def map(self):
 

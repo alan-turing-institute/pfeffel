@@ -1,6 +1,7 @@
 import folium
 
 from trip import Trip
+from utils import get_colours
 
 
 class Bike:
@@ -18,7 +19,7 @@ class Bike:
     def get_trips(self, stations):
 
         routes = [
-            Trip(self.bike_rides, trip_id, stations)
+            Trip(self.bike_rides, self.id, trip_id, stations)
             for trip_id in self.bike_rides.index
         ]
         self.routes = routes
@@ -32,14 +33,14 @@ class Bike:
         map = folium.Map(
             location=London, zoom_start=12, tiles="CartoDB positron"
         )
-
+        colours = get_colours(len(self.routes))
         for counter, trip in enumerate(self.routes):
 
             trip.get_route(key)
             if trip.route == {}:
                 continue
 
-            trip.folium_route(key, colours[0]).add_to(map)
+            trip.folium_route(key, colours[counter]).add_to(map)
 
-        f = "map_multiiple_trips.html"
+        f = "../output/" + str(self.id) + "_map_multiple_trips.html"
         map.save(f)
