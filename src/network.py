@@ -13,14 +13,16 @@ from matplotlib import pyplot as plt
 STATION_NAMES_FILE = "../data/station_names_20220615_1137.pickle"
 STATION_COORDS_FILE = "../data/stations_loc.json"
 
-TRIP_COUNT_THRESHOLD = 2e-5
+TRIP_COUNT_THRESHOLD = 1e-5
 MAP_BOUNDARIES = (-0.223, 0.005, 51.46, 51.555)
 FONT_SIZE = 10
-EDGE_WIDTH_FACTOR = 1e-2
-MAX_NODE_SIZE = 250.0
-MIN_NODE_SIZE = 0.1
-MIN_EDGE_ALPHA = 0.1
+NODE_COLORMAP = "tab10"
+MAX_NODE_SIZE = 300.0
+MIN_NODE_SIZE = 5.0
+MAX_EDGE_WIDTH = 3.0
+MIN_EDGE_WIDTH = None
 MAX_EDGE_ALPHA = 0.9
+MIN_EDGE_ALPHA = None
 EDGE_COLOUR = "#222222"
 LABEL_STATIONS = [
     # "Belgrove Street",
@@ -80,7 +82,7 @@ def get_node_info(graph):
     pos = [station_latlon[str(int(node))] for node in nodes]
     pos = [(p["lon"], p["lat"]) for p in pos]
 
-    station_sizes = [i[1] for i in list(graph.out_degree(weight="trip_count"))]
+    station_sizes = [i[1] for i in list(graph.degree(weight="trip_count"))]
 
     labels = [get_station_name(int(node)) for node in nodes]
 
@@ -128,22 +130,38 @@ def _scale_range(values, min_scaled, max_scaled):
     return scaled
 
 
-def create_network_and_map(df):
+def _drop_stations_without_location(graph):
+    with open(STATION_COORDS_FILE, "r") as f:
+        station_latlon = json.load(f)
+    nodes = tuple(graph.nodes)
+    stations_with_location = tuple(map(int, station_latlon.keys()))
+    for n in nodes:
+        if n not in stations_with_location:
+            print(f"Removing node {n} because of missing location data.")
+            graph.remove_node(n)
+    return None
+
+
+def create_network_and_map(
+    df,
+    allow_self_loops=False,
+    min_edge_width=MIN_EDGE_WIDTH,
+    min_edge_alpha=MIN_EDGE_ALPHA,
+    arrows=True,
+):
     community_graph = create_network_from_data(df, TRIP_COUNT_THRESHOLD)
+    _drop_stations_without_location(community_graph)
     nodes_info = get_node_info(community_graph)
     visualisation_graph = community_graph.copy()
-    visualisation_graph.remove_edges_from(nx.selfloop_edges(community_graph))
+    if not allow_self_loops:
+        visualisation_graph.remove_edges_from(
+            nx.selfloop_edges(community_graph)
+        )
     community_df = network_community_detection(community_graph, "trip_count")
     nodes_info = nodes_info.merge(community_df, on="id")
     nodes_info = nodes_info.sort_values(by="size", ascending=False)
     del community_df
 
-    weights = np.array(
-        [
-            visualisation_graph.edges[e]["trip_count"] * EDGE_WIDTH_FACTOR
-            for e in visualisation_graph.edges
-        ]
-    )
     labels = {
         id: name
         for id, name in zip(nodes_info["id"], nodes_info["name"])
@@ -152,7 +170,7 @@ def create_network_and_map(df):
 
     imagery = OSM(desired_tile_form="L")
     fig, ax = plt.subplots(
-        1, 1, figsize=(10, 10), subplot_kw=dict(projection=imagery.crs)
+        1, 1, figsize=(20, 10), subplot_kw=dict(projection=imagery.crs)
     )
     ax.set_extent(MAP_BOUNDARIES)
     ax.add_image(imagery, 14, cmap="gray")
@@ -166,7 +184,14 @@ def create_network_and_map(df):
     }
 
     sizes = _scale_range(nodes_info["size"], MIN_NODE_SIZE, MAX_NODE_SIZE)
-    edge_alpha = _scale_range(weights, MIN_EDGE_ALPHA, MAX_EDGE_ALPHA)
+    weights = np.array(
+        [
+            visualisation_graph.edges[e]["trip_count"]
+            for e in visualisation_graph.edges
+        ]
+    )
+    weights = _scale_range(weights, min_edge_width, MAX_EDGE_WIDTH)
+    edge_alpha = _scale_range(weights, min_edge_alpha, MAX_EDGE_ALPHA)
 
     # Plots
     nx.draw_networkx_nodes(
@@ -176,7 +201,7 @@ def create_network_and_map(df):
         node_color=nodes_info["partition"],
         alpha=1.0,
         node_size=sizes,
-        cmap="tab10_r",
+        cmap=NODE_COLORMAP,
         ax=ax,
     )
     nx.draw_networkx_edges(
@@ -185,7 +210,7 @@ def create_network_and_map(df):
         edge_color=EDGE_COLOUR,
         width=weights,
         alpha=edge_alpha,
-        arrows=True,
+        arrows=arrows,
         ax=ax,
     )
     nx.draw_networkx_labels(
@@ -195,4 +220,4 @@ def create_network_and_map(df):
         font_size=FONT_SIZE,
         ax=ax,
     )
-    plt.show()
+    return fig, ax, nodes_info
