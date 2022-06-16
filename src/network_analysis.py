@@ -3,6 +3,7 @@ import pickle
 import re
 
 import cartopy.crs as ccrs
+import community
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -17,6 +18,8 @@ NUM_LABELS = 16
 FONT_SIZE = 10
 EDGE_WIDTH_FACTOR = 1e-2
 NODE_SIZE_FACTOR = 0.03
+MIN_EDGE_ALPHA = 0.1
+MAX_EDGE_ALPHA = 0.9
 
 df = pd.read_pickle(DATA_FILE)
 with open(STATION_NAMES_FILE, "rb") as f:
@@ -58,12 +61,14 @@ graph = nx.from_pandas_edgelist(
     edge_attr="trip_count",
     create_using=nx.DiGraph,
 )
+# Drop self-loops
+graph.remove_edges_from(nx.selfloop_edges(graph))
 
 nodes = graph.nodes()
 pos = {int(k): (v["lon"], v["lat"]) for k, v in station_latlon.items()}
-weights = [
-    graph.edges[e]["trip_count"] * EDGE_WIDTH_FACTOR for e in graph.edges
-]
+weights = np.array(
+    [graph.edges[e]["trip_count"] * EDGE_WIDTH_FACTOR for e in graph.edges]
+)
 station_sizes = (
     trip_counts[["start_station_id", "trip_count"]]
     .groupby(["start_station_id"])
@@ -76,7 +81,7 @@ imagery = OSM()
 fig, ax = plt.subplots(
     1, 1, figsize=(10, 10), subplot_kw=dict(projection=imagery.crs)
 )
-ax.set_extent((-0.24, 0.1, 51.395, 51.615))
+ax.set_extent((-0.24, 0.02, 51.45, 51.56))
 ax.add_image(imagery, 14)
 xynps = ax.projection.transform_points(
     ccrs.Geodetic(),
@@ -85,6 +90,18 @@ xynps = ax.projection.transform_points(
 )
 pos = {k: (xynps[i, 0], xynps[i, 1]) for i, k in enumerate(pos.keys())}
 
+# Communitities
+graph_undirected = graph.to_undirected()
+# print(graph.edges[(279, 512)])
+print(graph.edges[(512, 279)])
+print(graph_undirected.edges[(279, 512)])
+partition = community.best_partition(graph_undirected, weight="trip_count")
+df_partition = pd.DataFrame(partition, index=[0]).T
+print(df_partition.value_counts())
+print(set(partition.values()))
+quit()
+
+# Plots
 nx.draw_networkx_nodes(
     G=graph,
     pos=pos,
@@ -94,12 +111,21 @@ nx.draw_networkx_nodes(
     node_size=station_sizes["trip_count"] * NODE_SIZE_FACTOR,
     ax=ax,
 )
+max_weight = np.max(weights)
+min_weight = np.min(weights)
+alpha_mult_coeff = (MAX_EDGE_ALPHA - MIN_EDGE_ALPHA) / (
+    max_weight - min_weight
+)
+alpha_add_coeff = (
+    max_weight * MIN_EDGE_ALPHA - min_weight * MAX_EDGE_ALPHA
+) / (max_weight - min_weight)
+alpha = alpha_mult_coeff * weights + alpha_add_coeff
 nx.draw_networkx_edges(
     G=graph,
     pos=pos,
     edge_color="#0114EE",
     width=weights,
-    alpha=0.2,
+    alpha=alpha,
     arrows=False,
     ax=ax,
 )

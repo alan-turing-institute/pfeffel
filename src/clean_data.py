@@ -361,6 +361,9 @@ def load_clean_data(bikefolder="./bikes", num_files=None, datapaths=None):
 
     df = df.rename(columns=COLUMN_RENAMES)
     df = df.convert_dtypes()  # Convert floats to ints, with NaN -> NA
+    # TODO Do this for the start date too, and so that it deals with NaTs
+    # correctly
+    # df = df[df["end_date"] >= datetime(years=2010, month=1, day=1)]
     # This drops multiple cases of the same trip being in multiple files
     # (sometimes with slightly differently rounded timestamps), and two cases
     # with non-sense timestamps or stations.
