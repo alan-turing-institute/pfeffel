@@ -17,9 +17,11 @@ TRIP_COUNT_THRESHOLD = 2e-5
 NUM_LABELS = 16
 FONT_SIZE = 10
 EDGE_WIDTH_FACTOR = 1e-2
-NODE_SIZE_FACTOR = 0.03
+MAX_NODE_SIZE = 100.0
+MIN_NODE_SIZE = 0.1
 MIN_EDGE_ALPHA = 0.1
 MAX_EDGE_ALPHA = 0.9
+EDGE_COLOUR = "#222222"
 
 df = pd.read_pickle(DATA_FILE)
 with open(STATION_NAMES_FILE, "rb") as f:
@@ -27,6 +29,33 @@ with open(STATION_NAMES_FILE, "rb") as f:
 
 with open(STATION_COORDS_FILE, "r") as f:
     station_latlon = json.load(f)
+
+# DEBUG
+pd.options.display.width = 1200
+pd.options.display.max_colwidth = 100
+pd.options.display.max_columns = 100
+print(df["start_date"].dt.weekday)
+df = df[
+    (df["start_date"].dt.weekday == 5) | (df["start_date"].dt.weekday == 6)
+]
+print(df)
+# END DEBUG
+
+
+def scale_range(values, min_scaled, max_scaled):
+    values = np.array(values)
+    if min_scaled is not None:
+        max_value = np.max(values)
+        min_value = np.min(values)
+        mult_coeff = (max_scaled - min_scaled) / (max_value - min_value)
+        add_coeff = (max_value * min_scaled - min_value * max_scaled) / (
+            max_value - min_value
+        )
+        scaled = mult_coeff * values + add_coeff
+    else:
+        max_value = np.max(values)
+        scaled = max_scaled * values / max_value
+    return scaled
 
 
 def get_station_name(id):
@@ -103,32 +132,33 @@ for edge in undirected_edges:
 partition = community.best_partition(graph_undirected, weight="trip_count")
 df_partition = pd.DataFrame(partition, index=[0]).T
 
+no_community_colour = max(partition.values()) + 1
+colours = [
+    partition[i] if i in partition else no_community_colour
+    for i in station_sizes.index
+]
+degree = {t[0]: t[1] for t in graph.degree(weight="trip_count")}
+sizes = [degree[i] for i in station_sizes.index]
+sizes = scale_range(sizes, MIN_NODE_SIZE, MAX_NODE_SIZE)
+
 # Plots
 nx.draw_networkx_nodes(
     G=graph,
     pos=pos,
     nodelist=station_sizes.index,
-    node_color="#148381",
+    node_color=colours,
     alpha=1.0,
-    node_size=station_sizes["trip_count"] * NODE_SIZE_FACTOR,
+    node_size=sizes,
     ax=ax,
 )
-max_weight = np.max(weights)
-min_weight = np.min(weights)
-alpha_mult_coeff = (MAX_EDGE_ALPHA - MIN_EDGE_ALPHA) / (
-    max_weight - min_weight
-)
-alpha_add_coeff = (
-    max_weight * MIN_EDGE_ALPHA - min_weight * MAX_EDGE_ALPHA
-) / (max_weight - min_weight)
-alpha = alpha_mult_coeff * weights + alpha_add_coeff
+alpha = scale_range(weights, MIN_EDGE_ALPHA, MAX_EDGE_ALPHA)
 nx.draw_networkx_edges(
     G=graph,
     pos=pos,
-    edge_color="#0114EE",
+    edge_color=EDGE_COLOUR,
     width=weights,
     alpha=alpha,
-    arrows=False,
+    arrows=True,
     ax=ax,
 )
 nx.draw_networkx_labels(
