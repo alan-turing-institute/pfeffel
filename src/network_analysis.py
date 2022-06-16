@@ -91,15 +91,17 @@ xynps = ax.projection.transform_points(
 pos = {k: (xynps[i, 0], xynps[i, 1]) for i, k in enumerate(pos.keys())}
 
 # Communitities
-graph_undirected = graph.to_undirected()
-# print(graph.edges[(279, 512)])
-print(graph.edges[(512, 279)])
-print(graph_undirected.edges[(279, 512)])
+graph_undirected = nx.Graph()
+undirected_edges = set(sorted(graph.edges))
+for edge in undirected_edges:
+    reverse_edge = (edge[1], edge[0])
+    trip_count = graph.edges[edge]["trip_count"]
+    if reverse_edge in graph.edges:
+        trip_count += graph.edges[reverse_edge]["trip_count"]
+    graph_undirected.add_edge(edge[0], edge[1], trip_count=trip_count)
+
 partition = community.best_partition(graph_undirected, weight="trip_count")
 df_partition = pd.DataFrame(partition, index=[0]).T
-print(df_partition.value_counts())
-print(set(partition.values()))
-quit()
 
 # Plots
 nx.draw_networkx_nodes(
