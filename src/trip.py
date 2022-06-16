@@ -2,7 +2,9 @@ import json
 import os
 
 import folium
+import numpy as np
 import requests as requests
+from folium import plugins
 
 
 class Trip:
@@ -86,6 +88,14 @@ class Trip:
                     if abs(self.duration - time) < closest_time:
                         closest_time = abs(time - self.duration)
                         trip_data = data
+                n_steps = len(trip_data["coordinates"].split(" "))
+                step_time = int(self.duration / n_steps)
+                trip_data["step_by_step_time"] = [
+                    (
+                        np.timedelta64(step_time * x, "s") + self.date["start"]
+                    ).astype(str)
+                    for x in range(n_steps)
+                ]
 
                 self.route = trip_data
             with open(route_file_path, "w") as fp:
@@ -112,9 +122,46 @@ class Trip:
             (float(i.split(",")[1]), float(i.split(",")[0]))
             for i in self.route["coordinates"].split(" ")
         ]
-
         folium_route = folium.PolyLine(
             coords, color=colour, weight=5, opacity=0.8
         )
 
         return folium_route
+
+    def folium_animation(chain):
+        # Create base map
+        London = [51.506949, -0.122876]
+        map = folium.Map(
+            location=London, zoom_start=12, tiles="CartoDB positron"
+        )
+        features = [
+            {
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        (float(i.split(",")[1]), float(i.split(",")[0]))
+                        for i in trip.coordinates.split(" ")
+                    ],
+                },
+                "properties": {
+                    # "2017-06-02T00:20:00"
+                    "times": [trip.date["start"], trip.date["end"]],
+                    "style": {
+                        "color": "red",
+                        "weight": 5,
+                    },
+                },
+            }
+            for counter, trip in enumerate(chain)
+        ]
+
+        plugins.TimestampedGeoJson(
+            {
+                "type": "FeatureCollection",
+                "features": features,
+            },
+            period="PT1M",
+            add_last_point=True,
+        ).add_to(map)
+        return map

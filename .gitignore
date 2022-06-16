@@ -133,3 +133,4 @@ output/routes/*.json
 output/*.html
 data/bike_stations_dump.json
 data/cycle_street_key.txt
+.vscode/launch.json
