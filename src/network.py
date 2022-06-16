@@ -2,6 +2,7 @@ import json
 import pickle
 import re
 
+import community
 import networkx as nx
 import pandas as pd
 
@@ -65,24 +66,22 @@ def get_node_info(graph):
     return nodes_df
 
 
-def network_community_detection(network):
+def network_community_detection(graph, edge_weight):
+    graph_undirected = nx.Graph()
+    undirected_edges = set(sorted(graph.edges))
+    for edge in undirected_edges:
+        reverse_edge = (edge[1], edge[0])
+        trip_count = graph.edges[edge][edge_weight]
+        if reverse_edge in graph.edges:
+            trip_count += graph.edges[reverse_edge][edge_weight]
+        graph_undirected.add_edge(edge[0], edge[1], trip_count=trip_count)
+
+    partition = community.best_partition(graph_undirected, weight=edge_weight)
+    df_partition = pd.DataFrame(partition, index=[0]).T.reset_index()
+    df_partition.columns = ["id", "partition"]
+
+    return df_partition
+
+
+def visualise_network_map(network, node_info_df):
     pass
-
-
-def visualise_network_map(network, node_pos, node_label):
-    # partition = community_louvain.best_partition(G)
-    pass
-
-
-def main():
-
-    data = pd.read_pickle("../test/data/sample.pickle")
-    graph = create_network_from_data(data, 0.001)
-
-    nodes_info = get_node_info(graph)
-
-    print(nodes_info)
-
-
-if __name__ == "__main__":
-    main()
