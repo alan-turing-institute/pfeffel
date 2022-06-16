@@ -1,117 +1,74 @@
-import cartopy.crs as ccrs
-import networkx as nx
-import numpy as np
+from datetime import datetime
+
 import pandas as pd
-from cartopy.io.img_tiles import OSM
 from matplotlib import pyplot as plt
 
-from src.network import (
-    create_network_from_data,
-    get_node_info,
-    network_community_detection,
-)
+from src.network import create_network_and_map
 
-DATA_FILE = "../data/latest_cleaned_data_samples.pickle"
-TRIP_COUNT_THRESHOLD = 2e-5
-MAP_BOUNDARIES = (-0.223, 0.005, 51.46, 51.555)
-FONT_SIZE = 10
-EDGE_WIDTH_FACTOR = 1e-2
-MAX_NODE_SIZE = 250.0
-MIN_NODE_SIZE = 0.1
-MIN_EDGE_ALPHA = 0.1
-MAX_EDGE_ALPHA = 0.9
-EDGE_COLOUR = "#222222"
-LABEL_STATIONS = [
-    # "Belgrove Street",
-    # "Waterloo Station 3",
-    # "Hyde Park Corner",
-    # "Aquatic Centre",
-    # "Bethnal Green Road",
-    # "Natural History Museum",
-    # "Kennington Oval",
-    # "Mudchute DLR",
-]
+DATA_FILE = "../data/cleaned_data_20220615_1137.pickle"
+# DATA_FILE = "../data/cleaned_data_20220615_1137_sample.pickle"
 
+HARD_START_DATE = datetime(year=2010, month=1, day=1)
 
-def scale_range(values, min_scaled, max_scaled):
-    values = np.array(values)
-    if min_scaled is not None:
-        max_value = np.max(values)
-        min_value = np.min(values)
-        mult_coeff = (max_scaled - min_scaled) / (max_value - min_value)
-        add_coeff = (max_value * min_scaled - min_value * max_scaled) / (
-            max_value - min_value
-        )
-        scaled = mult_coeff * values + add_coeff
-    else:
-        max_value = np.max(values)
-        scaled = max_scaled * values / max_value
-    return scaled
-
+start_date = datetime(year=2021, month=1, day=1)
+end_date = datetime(year=2022, month=1, day=1)
 
 df = pd.read_pickle(DATA_FILE)
-community_graph = create_network_from_data(df, TRIP_COUNT_THRESHOLD)
-nodes_info = get_node_info(community_graph)
-visualisation_graph = community_graph.copy()
-visualisation_graph.remove_edges_from(nx.selfloop_edges(community_graph))
-community_df = network_community_detection(community_graph, "trip_count")
-nodes_info = nodes_info.merge(community_df, on="id")
-nodes_info = nodes_info.sort_values(by="size", ascending=False)
-del community_df
+df = df[
+    (df["start_date"] > HARD_START_DATE) & (df["end_date"] > HARD_START_DATE)
+]
+df_year = df[(df["start_date"] > start_date) & (df["start_date"] < end_date)]
 
-weights = np.array(
-    [
-        visualisation_graph.edges[e]["trip_count"] * EDGE_WIDTH_FACTOR
-        for e in visualisation_graph.edges
+print("Plotting mornings")
+df_year_mornings = df[
+    df["start_date"].dt.hour.isin([7, 8, 9, 10])
+    & df["start_date"].dt.weekday.isin((0, 1, 2, 3, 4))
+]
+fig, ax, nodes_info = create_network_and_map(df_year_mornings)
+num_communities = len(nodes_info["partition"].unique())
+print(f"Number of communities: {num_communities}")
+plt.title("Weekday mornings (7-10)")
+plt.savefig("latest_weekday_morning_map.svg")
+# plt.show()
+
+print("Plotting afternoons")
+df_year_afternoons = df[
+    df["start_date"].dt.hour.isin([15, 16, 17, 18, 19])
+    & df["start_date"].dt.weekday.isin((0, 1, 2, 3, 4))
+]
+fig, ax, nodes_info = create_network_and_map(df_year_afternoons)
+num_communities = len(nodes_info["partition"].unique())
+print(f"Number of communities: {num_communities}")
+plt.title("Weekday afternoons (15-19)")
+plt.savefig("latest_weekday_afternoon_map.svg")
+# plt.show()
+
+print("Plotting weekends")
+df_year_weekends = df[df["start_date"].dt.weekday.isin((5, 6))]
+fig, ax, nodes_info = create_network_and_map(
+    df_year_weekends,
+    allow_self_loops=True,
+)
+num_communities = len(nodes_info["partition"].unique())
+print(f"Number of communities: {num_communities}")
+plt.title("Weekends")
+plt.savefig("latest_weekends_map.svg")
+# plt.show()
+
+for year in (2013, 2015, 2018, 2020):
+    print(f"Plotting {year}")
+    start_date = datetime(year=year, month=1, day=1)
+    end_date = datetime(year=year + 1, month=1, day=1)
+    df_year = df[
+        (df["start_date"] > start_date) & (df["start_date"] < end_date)
     ]
-)
-labels = {
-    id: name
-    for id, name in zip(nodes_info["id"], nodes_info["name"])
-    if name in LABEL_STATIONS
-}
-
-imagery = OSM(desired_tile_form="L")
-fig, ax = plt.subplots(
-    1, 1, figsize=(10, 10), subplot_kw=dict(projection=imagery.crs)
-)
-ax.set_extent(MAP_BOUNDARIES)
-ax.add_image(imagery, 14, cmap="gray")
-xynps = ax.projection.transform_points(
-    ccrs.Geodetic(),
-    np.array([p[0] for p in nodes_info["pos"]]),
-    np.array([p[1] for p in nodes_info["pos"]]),
-)
-pos = {k: (xynps[i, 0], xynps[i, 1]) for i, k in enumerate(nodes_info["id"])}
-
-sizes = scale_range(nodes_info["size"], MIN_NODE_SIZE, MAX_NODE_SIZE)
-edge_alpha = scale_range(weights, MIN_EDGE_ALPHA, MAX_EDGE_ALPHA)
-
-# Plots
-nx.draw_networkx_nodes(
-    visualisation_graph,
-    pos=pos,
-    nodelist=nodes_info["id"],
-    node_color=nodes_info["partition"],
-    alpha=1.0,
-    node_size=sizes,
-    cmap="tab10_r",
-    ax=ax,
-)
-nx.draw_networkx_edges(
-    visualisation_graph,
-    pos=pos,
-    edge_color=EDGE_COLOUR,
-    width=weights,
-    alpha=edge_alpha,
-    arrows=True,
-    ax=ax,
-)
-nx.draw_networkx_labels(
-    visualisation_graph,
-    pos=pos,
-    labels=labels,
-    font_size=FONT_SIZE,
-    ax=ax,
-)
-plt.show()
+    fig, ax, nodes_info = create_network_and_map(
+        df_year,
+        allow_self_loops=False,
+        arrows=False,
+    )
+    num_communities = len(nodes_info["partition"].unique())
+    print(f"Number of communities: {num_communities}")
+    plt.title(f"Year {year}")
+    plt.savefig(f"latest_{year}_map.svg")
+    # plt.show()
