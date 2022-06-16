@@ -50,5 +50,5 @@ class Bike:
 
                 trip.folium_route(key, colours[counter]).add_to(map)
 
-            f = "../output/" + str(self.id) + "_" + str(chain_id) + ".html"
+            f = "output/" + str(self.id) + "_" + str(chain_id) + ".html"
             map.save(f)

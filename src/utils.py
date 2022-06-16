@@ -1,4 +1,12 @@
+import json
+import os
+from datetime import datetime, timedelta
+
+import movingpandas as mpd
+import pandas as pd
 import seaborn as sns
+from geopandas import GeoDataFrame
+from shapely.geometry import Point
 
 
 def get_colours(steps):
@@ -43,3 +51,56 @@ def traj_to_timestamped_geojson(trajectory):
             }
         )
     return features
+
+
+def get_trajectory(bike_id):
+
+    route_folder = "output/routes/"
+    chains = [
+        filename
+        for filename in os.listdir(route_folder)
+        if str(bike_id) + "_" in filename
+    ]
+
+    times = []
+    geometry = []
+    colours = []
+
+    many_colurs = get_colours(len(chains))
+
+    for c in range(len(chains)):
+        chain = chains[c]
+        with open(route_folder + chain) as f:
+            d = json.load(f)
+        geometry += [
+            Point([float(y) for y in x.split(",")])
+            for x in d["coordinates"].split(" ")
+        ]
+        if len(times) == 0:
+            time_now = datetime.now()
+        else:
+            time_now = times[-1]
+        times += [
+            time_now + timedelta(seconds=10 * t + 1)
+            for t in range(len(d["coordinates"].split(" ")))
+        ]
+        colours += [
+            many_colurs[c] for x in range(len(d["coordinates"].split(" ")))
+        ]
+
+    df = pd.DataFrame()
+
+    df["t"] = times
+    df["trajectory_id"] = [1 for x in range(len(geometry))]
+    df["sequence"] = [x + 1 for x in range(len(geometry))]
+    df["colour"] = colours
+
+    gdf = GeoDataFrame(df, crs="EPSG:4326", geometry=geometry)
+    gdf = gdf.set_index("t")
+
+    trajs = mpd.TrajectoryCollection(gdf, "trajectory_id")
+    trajs = mpd.MinTimeDeltaGeneralizer(trajs).generalize(
+        tolerance=timedelta(seconds=1)
+    )
+    traj = trajs.trajectories[0]
+    return traj

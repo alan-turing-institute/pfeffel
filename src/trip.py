@@ -2,7 +2,6 @@ import json
 import os
 
 import folium
-import numpy as np
 import requests as requests
 from folium import plugins
 
@@ -44,7 +43,7 @@ class Trip:
 
     def get_route(self, key):
         route_file_path = (
-            "../output/routes/"
+            "output/routes/"
             + str(self.bike_id)
             + "_"
             + str(self.trip_id)
@@ -56,13 +55,12 @@ class Trip:
                 self.route = data
         else:
             if self.circular:
-                print("This is a circular trip, no route avalaible.")
                 self.route = {}
 
             else:
                 plans = ["balanced", "fastest", "quietest", "shortest"]
 
-                closest_time = 10000
+                closest_time = False
                 trip_data = {}
 
                 for plan in plans:
@@ -84,20 +82,16 @@ class Trip:
                         "@attributes"
                     ]
                     time = int(data["time"])
-
-                    if abs(self.duration - time) < closest_time:
+                    if closest_time is False:
                         closest_time = abs(time - self.duration)
                         trip_data = data
-                n_steps = len(trip_data["coordinates"].split(" "))
-                step_time = int(self.duration / n_steps)
-                trip_data["step_by_step_time"] = [
-                    (
-                        np.timedelta64(step_time * x, "s") + self.date["start"]
-                    ).astype(str)
-                    for x in range(n_steps)
-                ]
+
+                    elif abs(self.duration - time) < closest_time:
+                        closest_time = abs(time - self.duration)
+                        trip_data = data
 
                 self.route = trip_data
+
             with open(route_file_path, "w") as fp:
                 json.dump(self.route, fp)
 
