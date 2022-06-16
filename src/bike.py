@@ -34,15 +34,14 @@ class Bike:
 
     def visualize_routes(self, key):
 
-        colours = ["red"]
-
         # Create base map
         London = [51.506949, -0.122876]
-        map = folium.Map(
-            location=London, zoom_start=12, tiles="cartodbpositron"
-        )
         for chain_id, chain in self.chains.items():
+            map = folium.Map(
+                location=London, zoom_start=12, tiles="cartodbpositron"
+            )
             colours = get_colours(len(chain))
+
             for counter, trip in enumerate(chain):
                 trip.get_route(key)
                 if trip.route == {}:

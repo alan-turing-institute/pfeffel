@@ -58,7 +58,7 @@ def get_trajectory(bike_id):
     route_folder = "output/routes/"
     chains = [
         filename
-        for filename in os.listdir(route_folder)
+        for filename in sorted(os.listdir(route_folder))
         if str(bike_id) + "_" in filename
     ]
 
@@ -82,7 +82,7 @@ def get_trajectory(bike_id):
             else:
                 time_now = times[-1]
             times += [
-                time_now + timedelta(seconds=10 * t + 1)
+                time_now + timedelta(seconds=1 * t + 1)
                 for t in range(len(d["coordinates"].split(" ")))
             ]
             colours += [
@@ -105,3 +105,11 @@ def get_trajectory(bike_id):
     )
     traj = trajs.trajectories[0]
     return traj
+
+
+def check_id(row, stations):
+    start_id = str(int(row["start_station_id"]))
+    end_id = str(int(row["end_station_id"]))
+    if str(start_id) in stations.keys() and str(end_id) in stations.keys():
+        return True
+    return False
