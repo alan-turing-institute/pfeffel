@@ -15,7 +15,7 @@ def get_station_name(id):
         station_allnames = pickle.load(f)
 
     name = sorted(station_allnames[id])[0]
-    name = re.split(";|,|:", name)[0]
+    name = re.split(";|,|:", name)[0].strip()
     return name
 
 

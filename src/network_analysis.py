@@ -13,14 +13,24 @@ from src.network import (
 
 DATA_FILE = "../data/latest_cleaned_data_samples.pickle"
 TRIP_COUNT_THRESHOLD = 2e-5
-NUM_LABELS = 16
+MAP_BOUNDARIES = (-0.223, 0.005, 51.46, 51.555)
 FONT_SIZE = 10
 EDGE_WIDTH_FACTOR = 1e-2
-MAX_NODE_SIZE = 150.0
+MAX_NODE_SIZE = 250.0
 MIN_NODE_SIZE = 0.1
 MIN_EDGE_ALPHA = 0.1
 MAX_EDGE_ALPHA = 0.9
 EDGE_COLOUR = "#222222"
+LABEL_STATIONS = [
+    # "Belgrove Street",
+    # "Waterloo Station 3",
+    # "Hyde Park Corner",
+    # "Aquatic Centre",
+    # "Bethnal Green Road",
+    # "Natural History Museum",
+    # "Kennington Oval",
+    # "Mudchute DLR",
+]
 
 
 def scale_range(values, min_scaled, max_scaled):
@@ -57,17 +67,16 @@ weights = np.array(
 )
 labels = {
     id: name
-    for id, name in zip(
-        nodes_info["id"][:NUM_LABELS], nodes_info["name"][:NUM_LABELS]
-    )
+    for id, name in zip(nodes_info["id"], nodes_info["name"])
+    if name in LABEL_STATIONS
 }
 
-imagery = OSM()
+imagery = OSM(desired_tile_form="L")
 fig, ax = plt.subplots(
     1, 1, figsize=(10, 10), subplot_kw=dict(projection=imagery.crs)
 )
-ax.set_extent((-0.24, 0.02, 51.45, 51.56))
-ax.add_image(imagery, 14)
+ax.set_extent(MAP_BOUNDARIES)
+ax.add_image(imagery, 14, cmap="gray")
 xynps = ax.projection.transform_points(
     ccrs.Geodetic(),
     np.array([p[0] for p in nodes_info["pos"]]),
@@ -86,6 +95,7 @@ nx.draw_networkx_nodes(
     node_color=nodes_info["partition"],
     alpha=1.0,
     node_size=sizes,
+    cmap="tab10_r",
     ax=ax,
 )
 nx.draw_networkx_edges(
