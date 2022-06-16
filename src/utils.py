@@ -72,21 +72,22 @@ def get_trajectory(bike_id):
         chain = chains[c]
         with open(route_folder + chain) as f:
             d = json.load(f)
-        geometry += [
-            Point([float(y) for y in x.split(",")])
-            for x in d["coordinates"].split(" ")
-        ]
-        if len(times) == 0:
-            time_now = datetime.now()
-        else:
-            time_now = times[-1]
-        times += [
-            time_now + timedelta(seconds=10 * t + 1)
-            for t in range(len(d["coordinates"].split(" ")))
-        ]
-        colours += [
-            many_colurs[c] for x in range(len(d["coordinates"].split(" ")))
-        ]
+        if len(d) > 0:
+            geometry += [
+                Point([float(y) for y in x.split(",")])
+                for x in d["coordinates"].split(" ")
+            ]
+            if len(times) == 0:
+                time_now = datetime.now()
+            else:
+                time_now = times[-1]
+            times += [
+                time_now + timedelta(seconds=10 * t + 1)
+                for t in range(len(d["coordinates"].split(" ")))
+            ]
+            colours += [
+                many_colurs[c] for x in range(len(d["coordinates"].split(" ")))
+            ]
 
     df = pd.DataFrame()
 

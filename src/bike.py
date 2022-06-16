@@ -39,7 +39,7 @@ class Bike:
         # Create base map
         London = [51.506949, -0.122876]
         map = folium.Map(
-            location=London, zoom_start=12, tiles="CartoDB positron"
+            location=London, zoom_start=12, tiles="cartodbpositron"
         )
         for chain_id, chain in self.chains.items():
             colours = get_colours(len(chain))
