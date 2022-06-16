@@ -54,6 +54,7 @@ def get_node_info(graph):
     nodes = graph.nodes()
 
     pos = [station_latlon[str(int(node))] for node in nodes]
+    pos = [(p["lon"], p["lat"]) for p in pos]
 
     station_sizes = [i[1] for i in list(graph.out_degree(weight="trip_count"))]
 
