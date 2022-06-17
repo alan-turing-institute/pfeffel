@@ -27,6 +27,13 @@ start_time = np.datetime64("2016-10-07T00:00:00")
 
 pos = np.array([[v["lon"], v["lat"]] for k, v in station_latlon.items()])
 
+station_dict = {}
+
+for i, k in enumerate(station_latlon.keys()):
+    station_dict[k] = i
+
+self_counts = np.zeros(len(pos), dtype=np.int64)
+
 imagery = OSM(desired_tile_form="L")
 fig, ax = plt.subplots(
     1, 1, figsize=(10, 10), subplot_kw=dict(projection=imagery.crs)
@@ -34,16 +41,18 @@ fig, ax = plt.subplots(
 ax.set_extent((-0.24, 0.02, 51.45, 51.56))
 ax.add_image(imagery, 14, cmap="gray")
 
-xynps = ax.projection.transform_points(
+xynps_stations = ax.projection.transform_points(
     ccrs.Geodetic(),
     pos[:,0], pos[:,1],
 )
 
-ax.scatter(xynps[:,0], xynps[:,1], s=3., c="C1")
+ax.scatter(xynps_stations[:,0], xynps_stations[:,1], s=3., c="C1")
 
-xynps = ax.projection.transform_points(ccrs.Geodetic(), np.array(-0.0886), np.array(51.451647))
+xynps_label = ax.projection.transform_points(ccrs.Geodetic(), np.array(-0.0886), np.array(51.451647))
 
-lns = [ax.text(xynps[0,0], xynps[0,1], str(start_time), fontsize=20)]
+lns = [ax.text(xynps_label[0,0], xynps_label[0,1], str(start_time), fontsize=20)]
+
+lns.append(ax.scatter(xynps_stations[:,0], xynps_stations[:,1], s=self_counts, c="C2", alpha=0.5))
 
 nlines = 5000
 
@@ -58,9 +67,12 @@ def update(frame):
     t = start_time + np.timedelta64(frame*60*10, "s")
     tmp = df[df["start_date"] <= t]
     tmp = tmp[tmp["end_date"] >= t]
+    self_counts = np.zeros(len(pos), dtype=np.int64)
     for k, ln in enumerate(lns):
         if k == 0:
             ln.set_text(str(t))
+        elif k == 1:
+            pass
         else:
             ln.set_data([], [])
     for k, vals in enumerate(zip(tmp["start_station_id"], tmp["end_station_id"])):
@@ -74,9 +86,12 @@ def update(frame):
                 np.array([station_latlon[str(start)]["lon"], station_latlon[str(end)]["lon"]]),
                 np.array([station_latlon[str(start)]["lat"], station_latlon[str(end)]["lat"]]),
             )
-            lns[k + 1].set_data(xynps[:,0], xynps[:,1])
+            if start == end:
+                self_counts[station_dict[str(start)]] += 1
+            lns[k + 2].set_data(xynps[:,0], xynps[:,1])
         except KeyError:
-            lns[k + 1].set_data([], [])
+            lns[k + 2].set_data([], [])
+        lns[1].set_sizes(self_counts*50)
     return lns
 
 ani = FuncAnimation(fig, update, frames=np.arange(0, 2*6*24, 1),
