@@ -2,9 +2,11 @@ import json
 import os
 from datetime import datetime, timedelta
 
+import folium
 import movingpandas as mpd
 import pandas as pd
 import seaborn as sns
+from folium.plugins import TimestampedGeoJson
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
@@ -113,3 +115,28 @@ def check_id(row, stations):
     if str(start_id) in stations.keys() and str(end_id) in stations.keys():
         return True
     return False
+
+
+def remove_missing_stations(df, stations):
+    df["check_stations_ids"] = df.apply(
+        lambda row: check_id(row, stations), axis=1
+    )
+    df = df[df.check_stations_ids.eq(True)]
+    return df
+
+
+def draw_map(traj):
+    features = traj_to_timestamped_geojson(traj)
+    # Create base map
+    London = [51.506949, -0.122876]
+    map = folium.Map(location=London, zoom_start=12, tiles="cartodbpositron")
+    TimestampedGeoJson(
+        {
+            "type": "FeatureCollection",
+            "features": features,
+        },
+        period="PT1S",
+        add_last_point=False,
+        transition_time=10,
+    ).add_to(map)
+    return map
