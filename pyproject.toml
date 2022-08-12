@@ -24,6 +24,8 @@ networkx = "^2.8.4"
 python-louvain = "^0.16"
 movingpandas = "^0.9rc3"
 stonesoup = "^0.1b9"
+contextily = "^1.2.0"
+
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.1.0"

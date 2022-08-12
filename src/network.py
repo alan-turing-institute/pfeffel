@@ -2,12 +2,12 @@ import json
 import pickle
 import re
 
-import cartopy.crs as ccrs
 import community
+import contextily as cx
+import geopandas as gpd
 import networkx as nx
 import numpy as np
 import pandas as pd
-from cartopy.io.img_tiles import OSM
 from matplotlib import pyplot as plt
 
 STATION_NAMES_FILE = "../data/station_names_20220615_1137.pickle"
@@ -162,25 +162,31 @@ def create_network_and_map(
     nodes_info = nodes_info.sort_values(by="size", ascending=False)
     del community_df
 
+    nodes_info["lon"] = [p[0] for p in nodes_info["pos"]]
+    nodes_info["lat"] = [p[1] for p in nodes_info["pos"]]
+
+    nodes_info = gpd.GeoDataFrame(
+        nodes_info, geometry=gpd.points_from_xy(nodes_info.lon, nodes_info.lat)
+    )
+    nodes_info = nodes_info.set_crs(epsg=4326)
     labels = {
         id: name
         for id, name in zip(nodes_info["id"], nodes_info["name"])
         if name in LABEL_STATIONS
     }
 
-    imagery = OSM(desired_tile_form="L")
-    fig, ax = plt.subplots(
-        1, 1, figsize=(20, 10), subplot_kw=dict(projection=imagery.crs)
+    fig, ax = plt.subplots(1, 1, figsize=(20, 10))
+    nodes_info.plot(ax=ax)
+    cx.add_basemap(
+        ax, crs=nodes_info.crs, source=cx.providers.Stamen.TonerLite
     )
-    ax.set_extent(MAP_BOUNDARIES)
-    ax.add_image(imagery, 14, cmap="gray")
-    xynps = ax.projection.transform_points(
-        ccrs.Geodetic(),
+
+    xynps = [
         np.array([p[0] for p in nodes_info["pos"]]),
         np.array([p[1] for p in nodes_info["pos"]]),
-    )
+    ]
     pos = {
-        k: (xynps[i, 0], xynps[i, 1]) for i, k in enumerate(nodes_info["id"])
+        k: (xynps[0][i], xynps[1][i]) for i, k in enumerate(nodes_info["id"])
     }
 
     sizes = _scale_range(nodes_info["size"], MIN_NODE_SIZE, MAX_NODE_SIZE)
